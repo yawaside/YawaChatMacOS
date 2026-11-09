@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Send,
+  SendHorizontal,
   Smile,
   Zap,
 } from "lucide-react";
@@ -192,7 +193,10 @@ export default function ShellFeed({
           fontFamily: view ? fontStack(view.fontFamily, view.customFont) : undefined,
         }}
       >
-        <div className="flex flex-col" style={{ gap: view?.spacing ?? (layout === "studio" ? 3 : 4) }}>
+        <div
+          className="flex flex-col"
+          style={{ gap: view?.spacing ?? (layout === "studio" ? 3 : layout === "mac" ? 5 : 4) }}
+        >
           {visible.length === 0 && (
             <p className="px-3 py-6 text-center text-[12px]" style={{ color: "var(--dw-dim)" }}>
               {emptyHint ?? "сообщений пока нет"}
@@ -226,7 +230,13 @@ export default function ShellFeed({
       )}
 
       {composer && (
-        <ShellComposer channels={channels} botAuth={botAuth} onSend={onSend} compact={layout === "studio"} />
+        <ShellComposer
+          channels={channels}
+          botAuth={botAuth}
+          onSend={onSend}
+          compact={layout === "studio"}
+          mac={layout === "mac"}
+        />
       )}
     </div>
   );
@@ -309,6 +319,105 @@ function ShellRow({
             : m.kind === "raid"
               ? "рейд"
               : null;
+
+  /* ---------- «macOS»: круглая аватарка с бейджем площадки ---------- */
+  if (layout === "mac") {
+    const stickerOnly = isStickerOnly(String(m.text ?? ""), m.platform);
+    const stickerEm = 3.9;
+    return (
+      <div
+        className="mac-msg group relative mx-1 flex items-start gap-2.5 rounded-[12px] px-2.5 py-[7px] ring-1 ring-white/[0.08] ring-inset transition-colors hover:bg-white/[0.09]"
+        style={{
+          background: mentioned
+            ? "color-mix(in srgb, var(--dw-accent) 16%, rgba(255,255,255,0.07))"
+            : isEvent && !m.deleted
+              ? `color-mix(in srgb, ${tint} 13%, rgba(255,255,255,0.07))`
+              : "rgba(255,255,255,0.07)",
+          boxShadow: isEvent && !m.deleted ? `inset 3px 0 0 ${tint}` : undefined,
+          opacity: m.deleted ? 0.5 : 1,
+          /* вибрантность: полупрозрачная плашка на размытии */
+          backdropFilter: "blur(14px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.4)",
+          /* стикер растёт вверх: даём строке воздух */
+          paddingTop: stickerOnly && !m.deleted ? 8 : undefined,
+        }}
+        onDoubleClick={openMenu}
+      >
+        <span className="relative inline-block shrink-0 align-middle">
+          <Avatar
+            src={m.avatar}
+            name={m.author}
+            color={m.color || meta.color}
+            size={26}
+            square={false}
+            eager={eager}
+          />
+          <span
+            className="absolute -right-1 -bottom-1 grid h-[15px] w-[15px] place-items-center rounded-full bg-[#1C1C1F] ring-1 ring-black/50"
+            title={meta.name}
+          >
+            <PlatformIcon id={m.platform} size={9} />
+          </span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5">
+            <button
+              onClick={openMenu}
+              className="cursor-pointer truncate font-semibold hover:underline"
+              style={{
+                color: `color-mix(in srgb, ${m.color || meta.color} 74%, var(--dw-text))`,
+                fontSize: size,
+              }}
+              title="Меню модерации"
+            >
+              {m.author}
+            </button>
+            <ChatBadges msg={m} size={13} max={4} />
+            <span
+              className="ml-auto w-8 shrink-0 text-right text-[10px] leading-none tabular-nums opacity-0 transition-opacity select-none group-hover:opacity-50"
+              style={{ color: "var(--dw-dim)" }}
+              title={new Date(m.ts).toLocaleString("ru-RU")}
+            >
+              {fmtTime(m.ts)}
+            </span>
+          </div>
+          <div
+            className="mt-[1px] leading-snug"
+            style={{
+              fontSize: size,
+              textDecoration: m.deleted ? "line-through" : "none",
+              color: "var(--dw-text)",
+            }}
+          >
+            {amountLabel && (
+              <span
+                className="mr-1 inline-flex items-center gap-1 rounded-md px-1.5 align-middle text-[9.5px] leading-[1.4] font-bold"
+                style={{
+                  background: `color-mix(in srgb, ${tint} 18%, transparent)`,
+                  color: `color-mix(in srgb, ${tint} 62%, var(--dw-text))`,
+                }}
+              >
+                {ks?.icon}
+                {amountLabel}
+              </span>
+            )}
+            {m.deleted ? (
+              <span style={{ color: "var(--dw-dim)" }}>сообщение удалено</span>
+            ) : (
+              <span className="whitespace-pre-wrap">
+                <MsgText
+                  text={String(m.text ?? "")}
+                  platform={m.platform}
+                  eager={eager}
+                  emoteSize={stickerOnly ? stickerEm : undefined}
+                />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* --------------------------- строка сообщения ---------------------------
      Всё одной строкой, как в обычном чате: время, аватар, значки, ник и
@@ -446,11 +555,14 @@ function ShellComposer({
   botAuth,
   onSend,
   compact,
+  mac = false,
 }: {
   channels: Channel[];
   botAuth: Partial<Record<PlatformId, string>>;
   onSend?: ShellFeedProps["onSend"];
   compact: boolean;
+  /** «macOS»: композер без карточки, с градиентными пилюлями и кнопкой-кружком */
+  mac?: boolean;
 }) {
   const [text, setText] = useState("");
   const [target, setTarget] = useState<string>("");
@@ -519,8 +631,12 @@ function ShellComposer({
 
   return (
     <div
-      className={`shrink-0 rounded-2xl border ${compact ? "mx-1.5 mb-1.5 p-1.5" : "mx-5 mb-3 p-2"}`}
-      style={{ borderColor: "var(--dw-line)", background: "var(--dw-panel2)" }}
+      className={
+        mac
+          ? "shrink-0 border-t border-white/[0.06] bg-transparent px-3 py-2.5"
+          : `shrink-0 rounded-2xl border ${compact ? "mx-1.5 mb-1.5 p-1.5" : "mx-5 mb-3 p-2"}`
+      }
+      style={mac ? undefined : { borderColor: "var(--dw-line)", background: "var(--dw-panel2)" }}
     >
       <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5">
         {targets.length === 0 && (
@@ -536,13 +652,33 @@ function ShellComposer({
             <button
               key={key}
               onClick={() => setTarget(key)}
-              className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium transition-colors"
-              style={{
-                background: on ? `${meta.color}26` : "transparent",
-                color: on ? meta.color : "var(--dw-dim)",
-                boxShadow: on ? `inset 0 0 0 1px ${meta.color}55` : "none",
-                opacity: t.ready ? 1 : 0.6,
-              }}
+              className={
+                mac
+                  ? "flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all"
+                  : "flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium transition-colors"
+              }
+              style={
+                mac
+                  ? on
+                    ? {
+                        background: `linear-gradient(150deg, ${meta.color}, ${meta.color}B8)`,
+                        color: "#fff",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                        opacity: t.ready ? 1 : 0.55,
+                      }
+                    : {
+                        background: "rgba(255,255,255,0.06)",
+                        color: "rgba(255,255,255,0.55)",
+                        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+                        opacity: t.ready ? 1 : 0.55,
+                      }
+                  : {
+                      background: on ? `${meta.color}26` : "transparent",
+                      color: on ? meta.color : "var(--dw-dim)",
+                      boxShadow: on ? `inset 0 0 0 1px ${meta.color}55` : "none",
+                      opacity: t.ready ? 1 : 0.6,
+                    }
+              }
               title={
                 t.combined
                   ? "Одно сообщение сразу в Twitch и VK Видео Live"
@@ -551,14 +687,20 @@ function ShellComposer({
                     : `${meta.name}: подключите аккаунт чат-бота в настройках`
               }
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+              {mac ? (
+                <PlatformIcon id={t.platform} size={11} color={on ? "#fff" : undefined} />
+              ) : (
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+              )}
               {t.combined ? "оба" : t.name}
             </button>
           );
         })}
-        <span className="ml-auto text-[10px]" style={{ color: "var(--dw-dim)" }}>
-          Shift+Enter — новая строка
-        </span>
+        {!mac && (
+          <span className="ml-auto text-[10px]" style={{ color: "var(--dw-dim)" }}>
+            Shift+Enter — новая строка
+          </span>
+        )}
       </div>
 
       {!targets.some((t) => t.ready) && (
@@ -582,12 +724,16 @@ function ShellComposer({
                 : `Сообщение в ${current?.name ?? ""}`
               : "Войдите в чат-бот в настройках, чтобы писать в чат"
           }
-          className="min-h-[28px] max-h-24 min-w-0 flex-1 resize-none bg-transparent py-1 text-[12.5px] outline-none"
-          style={{ color: "var(--dw-text)" }}
+          className={
+            mac
+              ? "h-9 min-h-9 min-w-0 flex-1 resize-none rounded-[10px] bg-white/[0.07] px-3.5 py-2 text-[13px] outline-none ring-1 ring-white/[0.08] ring-inset transition-shadow placeholder-white/30 focus:ring-2 focus:ring-[#0A84FF]/60"
+              : "min-h-[28px] max-h-24 min-w-0 flex-1 resize-none bg-transparent py-1 text-[12.5px] outline-none"
+          }
+          style={mac ? { color: "#f5f5f7" } : { color: "var(--dw-text)" }}
           disabled={!ready}
         />
 
-        {emojiOpen && (
+        {!mac && emojiOpen && (
           <div className="relative">
             <div
               className="absolute right-0 bottom-8 flex w-[150px] flex-wrap gap-1 rounded-xl p-1.5 shadow-xl"
@@ -609,30 +755,45 @@ function ShellComposer({
           </div>
         )}
 
-        <button
-          onClick={() => setEmojiOpen((v) => !v)}
-          className="cursor-pointer rounded p-1 transition-colors hover:bg-[var(--dw-hover)]"
-          title="Смайлы"
-          disabled={!ready}
-        >
-          <Smile size={15} style={{ color: "var(--dw-dim)" }} />
-        </button>
-        <button
-          className="cursor-pointer rounded p-1 transition-colors hover:bg-[var(--dw-hover)]"
-          title="Площадки принимают только текст — вложение отправить нельзя"
-          onClick={() => inputRef.current?.focus()}
-        >
-          <Paperclip size={15} style={{ color: "var(--dw-dim)" }} />
-        </button>
+        {!mac && (
+          <>
+            <button
+              onClick={() => setEmojiOpen((v) => !v)}
+              className="cursor-pointer rounded p-1 transition-colors hover:bg-[var(--dw-hover)]"
+              title="Смайлы"
+              disabled={!ready}
+            >
+              <Smile size={15} style={{ color: "var(--dw-dim)" }} />
+            </button>
+            <button
+              className="cursor-pointer rounded p-1 transition-colors hover:bg-[var(--dw-hover)]"
+              title="Площадки принимают только текст — вложение отправить нельзя"
+              onClick={() => inputRef.current?.focus()}
+            >
+              <Paperclip size={15} style={{ color: "var(--dw-dim)" }} />
+            </button>
+          </>
+        )}
         <button
           onClick={() => void send()}
           disabled={!ready || !text.trim() || sending}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-bold transition-all hover:brightness-110 disabled:cursor-default disabled:opacity-45"
-          style={{ background: "var(--dw-accent)", color: "var(--dw-accent-ink)" }}
+          className={
+            mac
+              ? "grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-[#0A84FF] text-white shadow-[0_4px_14px_rgba(0,0,0,0.45)] transition-all hover:brightness-110 active:scale-95 disabled:cursor-default disabled:opacity-40"
+              : "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-bold transition-all hover:brightness-110 disabled:cursor-default disabled:opacity-45"
+          }
+          style={mac ? undefined : { background: "var(--dw-accent)", color: "var(--dw-accent-ink)" }}
           title="Отправить (Enter)"
+          aria-label="Отправить"
         >
-          {sending ? <Check size={13} /> : <Send size={13} />}
-          Отправить
+          {sending ? (
+            <Check size={mac ? 16 : 13} />
+          ) : mac ? (
+            <SendHorizontal size={16} className="translate-x-[1px]" />
+          ) : (
+            <Send size={13} />
+          )}
+          {!mac && "Отправить"}
         </button>
       </div>
     </div>

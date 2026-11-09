@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AudioLines,
@@ -17,6 +17,8 @@ import {
   MessageSquare,
   MessagesSquare,
   Mic2,
+  CornerDownLeft,
+  KeyRound,
   MonitorPlay,
   Paintbrush,
   PanelLeft,
@@ -39,6 +41,7 @@ import {
 } from "lucide-react";
 import ShellFeed from "./ShellFeed";
 import appIcon from "../../assets/app-icon.jpg";
+import type { LucideIcon } from "lucide-react";
 import type { SettingsTabId } from "./SettingsShell";
 import { PlatformIcon, platformMeta } from "../../lib/platforms";
 import type { Channel, ChatMsg, ChatViewConfig, ModerationRequest, PlatformId } from "../../lib/types";
@@ -1015,16 +1018,18 @@ function SparkBars({ values }: { values: number[] }) {
 }
 
 /* ============================== «macOS» ==============================
-   По мотивам src-mac: заголовок в духе macOS со светофорами, вибрантные
-   панели и сгруппированные разделы слева. Сводка эфира — переключаемый
-   столбец справа, как в оригинале. Внутри — те же настоящие блоки, что
-   и в других видах: лента со строкой отправки, панель каналов, настройки. */
+   Референс — src-mac: окно macOS со светофорами, вибрантные панели,
+   сгруппированные разделы слева, Spotlight по Ctrl/Cmd+K и сводка эфира
+   справа. Внутри — настоящие блоки приложения: лента и строка отправки,
+   окно каналов, вкладки настроек — всё работает, как и в других видах. */
 
-interface MacNavItem {
+interface MacSection {
+  id: string;
   name: string;
-  icon: ReactNode;
-  /** цвет плитки значка */
+  hint: string;
+  icon: LucideIcon;
   tint: string;
+  group: string;
   /** текущий раздел: кнопка подсвечена, перехода нет */
   current?: boolean;
   /** открыть окно каналов */
@@ -1033,37 +1038,102 @@ interface MacNavItem {
   tab?: SettingsTabId;
 }
 
-const MAC_NAV: { group: string; items: MacNavItem[] }[] = [
+const MAC_SECTIONS: MacSection[] = [
   {
+    id: "chat",
+    name: "Чат",
+    hint: "Единая лента всех площадок",
+    icon: MessagesSquare,
+    tint: "#0A84FF",
     group: "Основное",
-    items: [
-      { name: "Чат", icon: <MessagesSquare size={13} />, tint: "#0A84FF", current: true },
-      { name: "Каналы", icon: <Radio size={13} />, tint: "#BF5AF2", dialog: true },
-      { name: "Чат-бот", icon: <Bot size={13} />, tint: "#FF9F0A", tab: "chatbot" },
-      { name: "Донаты", icon: <HandCoins size={13} />, tint: "#FFD60A", tab: "donations" },
-    ],
+    current: true,
   },
   {
+    id: "channels",
+    name: "Каналы",
+    hint: "Подключённые стримы и статусы",
+    icon: Radio,
+    tint: "#BF5AF2",
+    group: "Основное",
+    dialog: true,
+  },
+  {
+    id: "auth",
+    name: "Авторизация",
+    hint: "Вход в аккаунты площадок и чат-бота",
+    icon: KeyRound,
+    tint: "#5AC8FA",
+    group: "Основное",
+    tab: "chatbot",
+  },
+  {
+    id: "bot",
+    name: "Чат-бот",
+    hint: "Автоответы, режимы чата, модерация",
+    icon: Bot,
+    tint: "#FF9F0A",
+    group: "Основное",
+    tab: "chatbot",
+  },
+  {
+    id: "donations",
+    name: "Донаты",
+    hint: "DonationAlerts · DonatePay · MemeAlerts",
+    icon: HandCoins,
+    tint: "#FFD60A",
+    group: "Основное",
+    tab: "donations",
+  },
+  {
+    id: "voice",
+    name: "Озвучка",
+    hint: "Edge TTS, голос и громкость",
+    icon: AudioLines,
+    tint: "#30D158",
     group: "Звук",
-    items: [
-      { name: "Озвучка", icon: <AudioLines size={13} />, tint: "#30D158", tab: "voice" },
-      { name: "Звуки наград", icon: <Disc3 size={13} />, tint: "#FF453A", tab: "rewards" },
-    ],
+    tab: "voice",
   },
   {
+    id: "sounds",
+    name: "Звуки наград",
+    hint: "Награды за баллы канала",
+    icon: Disc3,
+    tint: "#FF453A",
+    group: "Звук",
+    tab: "rewards",
+  },
+  {
+    id: "overlay",
+    name: "Оверлей и OBS",
+    hint: "Окно поверх игры, виджет чата",
+    icon: PictureInPicture2,
+    tint: "#64D2FF",
     group: "Эфир",
-    items: [
-      { name: "Оверлей и OBS", icon: <PictureInPicture2 size={13} />, tint: "#64D2FF", tab: "overlay" },
-    ],
+    tab: "overlay",
   },
   {
+    id: "appearance",
+    name: "Оформление",
+    hint: "Вид окна и оформление ленты",
+    icon: Paintbrush,
+    tint: "#FF6482",
     group: "Приложение",
-    items: [
-      { name: "Оформление", icon: <Paintbrush size={13} />, tint: "#FF6482", tab: "view" },
-      { name: "Настройки", icon: <Settings size={13} />, tint: "#98989D", tab: "system" },
-    ],
+    tab: "view",
+  },
+  {
+    id: "settings",
+    name: "Настройки",
+    hint: "Приложение, горячие клавиши, диагностика",
+    icon: Settings,
+    tint: "#98989D",
+    group: "Приложение",
+    tab: "system",
   },
 ];
+
+const MAC_GROUPS: { title: string; items: MacSection[] }[] = ["Основное", "Звук", "Эфир", "Приложение"].map(
+  (title) => ({ title, items: MAC_SECTIONS.filter((s) => s.group === title) }),
+);
 
 function pluralRu(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10;
@@ -1076,37 +1146,53 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
 function MacShell(p: ChatShellProps) {
   const [manageOpen, setManageOpen] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [spotlight, setSpotlight] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const live = p.onlineCount > 0;
   const liveLabel = `${p.onlineCount} ${pluralRu(p.onlineCount, "площадка", "площадки", "площадок")}`;
 
-  const pick = (item: MacNavItem) => {
-    if (item.current) return;
-    if (item.dialog) {
+  const pick = (s: MacSection) => {
+    if (s.current) return;
+    if (s.dialog) {
       setManageOpen(true);
       return;
     }
-    if (item.tab) p.onOpenSettings(item.tab);
+    if (s.tab) p.onOpenSettings(s.tab);
   };
+
+  /* Spotlight: Ctrl/Cmd+K открывает быстрый переход, Esc закрывает. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSpotlight((s) => !s);
+      }
+      if (e.key === "Escape") setSpotlight(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div
-      className="flex min-h-0 flex-1"
+      className="relative flex min-h-0 flex-1"
       style={{ background: "linear-gradient(165deg, #1D1D21 0%, #171719 45%, #131316 100%)" }}
     >
       {!p.focusMode && (
         <aside className="flex w-[224px] shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.045]">
-          <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-3 pb-2" aria-label="Разделы">
-            {MAC_NAV.map((g) => (
-              <div key={g.group} className="mb-3">
+          <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-2 pb-3" aria-label="Разделы">
+            {MAC_GROUPS.map((g) => (
+              <div key={g.title} className="mb-3">
                 <div className="px-2 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/35">
-                  {g.group}
+                  {g.title}
                 </div>
                 <div className="flex flex-col gap-[3px]">
                   {g.items.map((item) => {
                     const active = !!item.current;
+                    const Icon = item.icon;
                     return (
                       <button
-                        key={item.name}
+                        key={item.id}
                         onClick={() => pick(item)}
                         aria-current={active ? "page" : undefined}
                         className={`relative flex h-[34px] w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 text-left text-[13px] transition-colors ${
@@ -1114,13 +1200,13 @@ function MacShell(p: ChatShellProps) {
                         }`}
                       >
                         {active && (
-                          <span className="pointer-events-none absolute inset-0 rounded-[8px] bg-white/[0.12] shadow-[0_1px_2px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.06]" />
+                          <span className="mac-pill pointer-events-none absolute inset-0 rounded-[8px] bg-white/[0.12] shadow-[0_1px_2px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.06]" />
                         )}
                         <span
                           className="relative grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[6px] text-white shadow-sm"
                           style={{ background: `linear-gradient(160deg, ${item.tint}, ${item.tint}CC)` }}
                         >
-                          {item.icon}
+                          <Icon size={13} strokeWidth={2} />
                         </span>
                         <span className="relative min-w-0 flex-1 truncate font-medium">{item.name}</span>
                       </button>
@@ -1133,14 +1219,11 @@ function MacShell(p: ChatShellProps) {
 
           <div className="shrink-0 border-t border-white/[0.06] p-3">
             <div className="flex items-center gap-2.5 rounded-[10px] bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06]">
-              <img
-                src={appIcon}
-                alt="YawaChat"
-                draggable={false}
-                className="h-8 w-8 shrink-0 rounded-[9px] object-cover ring-1 ring-white/[0.08]"
-              />
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#5E5CE6] to-[#BF5AF2] text-[13px] font-bold text-white shadow">
+                Y
+              </span>
               <div className="min-w-0 flex-1 leading-tight">
-                <div className="truncate text-[12.5px] font-semibold text-white/90">YawaChat</div>
+                <div className="truncate text-[12.5px] font-semibold text-white/90">yawaside</div>
                 <div
                   className={`flex items-center gap-1 text-[10.5px] ${
                     live ? "text-[#30D158]" : "text-white/35"
@@ -1158,7 +1241,7 @@ function MacShell(p: ChatShellProps) {
       )}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Заголовок окна в стиле macOS: светофоры, название, переключатель звука */}
+        {/* Заголовок окна: светофоры, название по центру, звук */}
         <div
           className="drag-region relative flex h-[52px] shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3"
           onDoubleClick={p.onHeaderDoubleClick}
@@ -1192,12 +1275,20 @@ function MacShell(p: ChatShellProps) {
 
           <div className="ml-auto flex w-[220px] shrink-0 items-center justify-end gap-1.5">
             <button
+              onClick={() => setSpotlight((s) => !s)}
+              title="Быстрый переход (Ctrl+K)"
+              aria-label="Быстрый переход"
+              className="no-drag flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/[0.06] text-white/60 ring-1 ring-white/10 transition-colors hover:bg-white/[0.12] hover:text-white/90"
+            >
+              <Search size={13} />
+            </button>
+            <button
               onClick={p.onToggleTts}
               title={p.ttsOn ? "Выключить озвучку (F9)" : "Включить озвучку (F9)"}
               aria-pressed={p.ttsOn}
               className={`no-drag flex h-7 w-[104px] cursor-pointer items-center justify-center gap-1.5 rounded-full text-[11px] font-medium ring-1 transition-colors ${
                 p.ttsOn
-                  ? "bg-[#30D158]/12 text-[#30D158] ring-[#30D158]/30 hover:bg-[#30D158]/20"
+                  ? "bg-white/[0.06] text-white/70 ring-white/10 hover:bg-white/10"
                   : "bg-[#FF453A]/15 text-[#FF6B61] ring-[#FF453A]/30 hover:bg-[#FF453A]/20"
               }`}
             >
@@ -1209,9 +1300,9 @@ function MacShell(p: ChatShellProps) {
           </div>
         </div>
 
-        {/* Поиск по ленте, фильтры, пауза и переключатель сводки */}
-        <div className="flex min-h-[46px] shrink-0 flex-wrap items-center gap-1.5 border-b border-white/[0.06] px-3 py-1">
-          <div className="relative w-[230px] max-w-[40vw]">
+        {/* Поиск по ленте и переключатель сводки — узкая полоса, как в референсе */}
+        <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1">
+          <div className="relative w-[260px] max-w-[46vw]">
             <Search
               size={12}
               className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-white/35"
@@ -1225,46 +1316,71 @@ function MacShell(p: ChatShellProps) {
             />
           </div>
           <div className="ml-auto flex items-center gap-1.5">
-            {AIR_FILTERS.map((f) => {
-              const on = p.filter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => p.onFilter(f.id)}
-                  aria-pressed={on}
-                  className={`cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
-                    on
-                      ? "bg-[#0A84FF] text-white"
-                      : "bg-white/[0.06] text-white/55 hover:bg-white/[0.1] hover:text-white/85"
-                  }`}
-                >
-                  {f.name}
-                </button>
-              );
-            })}
-            <button
-              onClick={p.onPause}
-              aria-pressed={p.paused}
-              className={`flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
-                p.paused
-                  ? "bg-[#FFD60A]/15 text-[#FFD60A]"
-                  : "bg-white/[0.06] text-white/55 hover:bg-white/[0.1] hover:text-white/85"
-              }`}
-            >
-              {p.paused ? <Play size={11} /> : <Pause size={11} />}
-              {p.paused ? "Продолжить" : "Пауза"}
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setFilterOpen((v) => !v)}
+                title="Фильтр ленты"
+                aria-pressed={p.filter !== "all" || p.paused}
+                className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
+                  p.filter !== "all" || p.paused
+                    ? "bg-[#0A84FF]/20 text-[#409CFF] ring-[#0A84FF]/40"
+                    : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
+                }`}
+              >
+                <Filter size={14} />
+              </button>
+              {filterOpen && (
+                <div className="mac-pop absolute right-0 z-40 mt-1.5 w-[192px] overflow-hidden rounded-[12px] bg-[#26262B]/95 p-1 shadow-2xl ring-1 ring-white/[0.12] backdrop-blur-2xl">
+                  {AIR_FILTERS.map((f) => {
+                    const on = p.filter === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          p.onFilter(f.id);
+                          setFilterOpen(false);
+                        }}
+                        className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] capitalize text-white/80 transition-colors hover:bg-white/[0.08]"
+                      >
+                        {on ? <Check size={12} className="text-[#409CFF]" /> : <span className="w-3" />}
+                        {f.name}
+                      </button>
+                    );
+                  })}
+                  <div className="my-1 border-t border-white/[0.08]" />
+                  <button
+                    onClick={() => {
+                      p.onPause();
+                      setFilterOpen(false);
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition-colors hover:bg-white/[0.08]"
+                  >
+                    {p.paused ? <Play size={12} /> : <Pause size={12} />}
+                    {p.paused ? "Продолжить ленту" : "Пауза ленты"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFilterOpen(false);
+                      p.onOpenSettings("filters");
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/70"
+                  >
+                    Настройки фильтров…
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setShowStats((s) => !s)}
               title={showStats ? "Скрыть сводку эфира" : "Показать сводку эфира"}
               aria-pressed={showStats}
-              className={`grid h-7 w-7 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
+              className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
                 showStats
                   ? "bg-[#0A84FF] text-white ring-transparent"
                   : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
               }`}
             >
-              <ChartColumnBig size={14} />
+              <ChartColumnBig size={15} />
             </button>
           </div>
         </div>
@@ -1295,6 +1411,118 @@ function MacShell(p: ChatShellProps) {
       <ChannelsDialog open={manageOpen} onClose={() => setManageOpen(false)}>
         {p.channelsPanel}
       </ChannelsDialog>
+
+      <MacSpotlight
+        open={spotlight}
+        onClose={() => setSpotlight(false)}
+        onPick={(s) => {
+          setSpotlight(false);
+          pick(s);
+        }}
+      />
+    </div>
+  );
+}
+
+/** Быстрый переход по разделам (Spotlight): Ctrl/Cmd+K, стрелки и Enter. */
+function MacSpotlight({
+  open,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (s: MacSection) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [cursor, setCursor] = useState(0);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setCursor(0);
+    }
+  }, [open]);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return MAC_SECTIONS;
+    return MAC_SECTIONS.filter((s) => `${s.name} ${s.hint}`.toLowerCase().includes(q));
+  }, [query]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="mac-fade absolute inset-0 z-50 flex items-start justify-center bg-black/25 pt-[18vh]"
+      onMouseDown={onClose}
+      role="dialog"
+      aria-label="Быстрый переход"
+    >
+      <div
+        className="mac-pop w-[560px] max-w-[92vw] overflow-hidden rounded-[18px] bg-[#232326]/[0.92] shadow-[0_30px_90px_rgba(0,0,0,0.6)] ring-1 ring-white/[0.15] backdrop-blur-3xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 px-5 py-4">
+          <Search size={20} className="shrink-0 text-white/40" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCursor(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setCursor((c) => Math.min(c + 1, results.length - 1));
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setCursor((c) => Math.max(c - 1, 0));
+              }
+              if (e.key === "Enter" && results[cursor]) {
+                onPick(results[cursor]);
+              }
+              if (e.key === "Escape") onClose();
+            }}
+            placeholder="Быстрый переход · разделы YawaChat"
+            aria-label="Быстрый переход по разделам"
+            className="w-full bg-transparent text-[19px] font-light text-white/95 outline-none placeholder-white/30"
+          />
+        </div>
+        {results.length > 0 && (
+          <div className="border-t border-white/[0.08] p-2">
+            {results.map((r, i) => {
+              const on = i === cursor;
+              const Icon = r.icon;
+              return (
+                <button
+                  key={r.id}
+                  onMouseEnter={() => setCursor(i)}
+                  onClick={() => onPick(r)}
+                  className={`flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left transition-colors ${
+                    on ? "bg-[#0A84FF]" : "hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Icon size={17} className={on ? "text-white" : "text-white/60"} />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[14px] font-medium ${on ? "text-white" : "text-white/85"}`}>
+                      {r.name}
+                    </span>
+                    <span
+                      className={`block truncate text-[11.5px] ${on ? "text-white/75" : "text-white/40"}`}
+                    >
+                      {r.hint}
+                    </span>
+                  </span>
+                  {on && <CornerDownLeft size={13} className="shrink-0 text-white/80" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1306,7 +1534,7 @@ function MacStats({ p, live }: { p: ChatShellProps; live: boolean }) {
   const max = Math.max(1, peak);
 
   return (
-    <aside className="hidden w-[236px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.06] bg-white/[0.03] p-3 xl:flex">
+    <aside className="mac-panel hidden w-[236px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.06] bg-white/[0.03] p-3 backdrop-blur-xl xl:flex">
       <div className="flex h-5 items-center justify-between px-0.5">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-white/35">Сводка эфира</span>
         <span
@@ -1358,7 +1586,7 @@ function MacStats({ p, live }: { p: ChatShellProps; live: boolean }) {
 
       <div className="rounded-[12px] bg-white/[0.05] p-3 ring-1 ring-white/[0.06]">
         <div className="flex h-4 items-center justify-between">
-          <span className="text-[11px] font-medium text-white/50">Активность эфира</span>
+          <span className="text-[11px] font-medium text-white/50">Активность чата</span>
           <span className="text-[10px] tabular-nums text-white/35">пик {peak.toLocaleString("ru-RU")}</span>
         </div>
         <div className="mt-2 flex h-12 items-end gap-[3px]">

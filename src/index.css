@@ -2813,3 +2813,85 @@ input[type="range"]::-moz-range-thumb {
     outline-offset: 2px;
   }
 }
+
+/* ============ Вид «macOS»: анимации в духе NSWindow ============ */
+@keyframes mac-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mac-fade {
+  animation: mac-fade-in 0.16s ease both;
+}
+
+@keyframes mac-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.mac-pop {
+  animation: mac-pop-in 0.22s cubic-bezier(0.32, 1.35, 0.5, 1) both;
+}
+
+/* свежая строка ленты появляется мягко: чуть ниже и крупнее по масштабу */
+@keyframes mac-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mac-msg {
+  animation: mac-msg-in 0.18s ease-out both;
+}
+
+/* правый столбец «Сводка эфира» выезжает справа */
+@keyframes mac-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mac-panel {
+  animation: mac-panel-in 0.2s ease-out both;
+}
+
+/* активная плитка раздела в сайдбаре */
+@keyframes mac-pill-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.mac-pill {
+  animation: mac-pill-in 0.18s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mac-fade,
+  .mac-pop,
+  .mac-msg,
+  .mac-panel,
+  .mac-pill {
+    animation: none !important;
+  }
+}

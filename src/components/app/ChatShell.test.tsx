@@ -92,6 +92,10 @@ describe("ChatShell", () => {
     expect(html).toContain("Основное");
     expect(html).toContain("Приложение");
     expect(html).toContain("Оверлей и OBS");
+    expect(html).toContain("Авторизация");
+    expect(html).toContain("yawaside");
+    /* Spotlight закрыт по умолчанию (кнопка быстрого перехода в заголовке есть) */
+    expect(html).not.toContain("Быстрый переход · разделы YawaChat");
   });
 
   it("«macOS» прячет панели в режиме «только чат»", () => {
