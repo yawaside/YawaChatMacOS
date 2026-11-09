@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
+    "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --accent: #0a84ff;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: #fff;
+}
+
+/* Акцентные утилиты (цвет берётся из --accent) */
+.bg-accent {
+  background-color: var(--accent);
+}
+.bg-accent-soft {
+  background-color: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.text-accent {
+  color: var(--accent);
+}
+.ring-accent {
+  --tw-ring-color: var(--accent);
+}
+.border-accent {
+  border-color: var(--accent);
+}
+
+/* Тонкие скроллбары в духе macOS; gutter фиксирован, чтобы кнопки и панели не прыгали */
+.mac-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-gutter: stable;
+}
+.mac-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.mac-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+.mac-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+  background-clip: padding-box;
+}
+.mac-scroll::-webkit-scrollbar-track,
+.mac-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  letter-spacing: -0.01em;
+}
+
+button {
+  cursor: default;
+}
+input,
+textarea {
+  cursor: text;
+}
+
+/* ---------- Декоры тем (сканлайны CRT, неоновая сетка, диттеринг, линовка) ---------- */
+.decor {
+  opacity: 0.7;
+}
+.decor-scanlines {
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 3px);
+}
+.decor-grid {
+  background-image:
+    linear-gradient(rgba(255, 46, 151, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 46, 151, 0.13) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, transparent, #000 30%);
+}
+.decor-dots {
+  background-image: radial-gradient(rgba(127, 127, 127, 0.18) 1.1px, transparent 1.2px);
+  background-size: 11px 11px;
+}
+.decor-paper {
+  background-image: repeating-linear-gradient(0deg, transparent 0 26px, rgba(90, 110, 180, 0.16) 26px 27px);
+}
