@@ -2789,9 +2789,6 @@ input[type="range"]::-moz-range-thumb {
     transition: none !important;
   }
 }
-<<<<<<< HEAD
-=======
-
 /* Пункт настроек, найденный через поиск: короткая вспышка акцентом,
    чтобы было видно, куда именно привёл переход. */
 @keyframes y-set-flash {
@@ -2815,4 +2812,146 @@ input[type="range"]::-moz-range-thumb {
     outline: 1px solid var(--dw-accent-2);
     outline-offset: 2px;
   }
+}
+
+/* ============ Вид «macOS»: анимации в духе NSWindow ============ */
+@keyframes mac-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mac-fade {
+  animation: mac-fade-in 0.16s ease both;
+}
+
+@keyframes mac-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.mac-pop {
+  animation: mac-pop-in 0.22s cubic-bezier(0.32, 1.35, 0.5, 1) both;
+}
+
+/* свежая строка ленты появляется мягко: чуть ниже и крупнее по масштабу */
+@keyframes mac-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mac-msg {
+  animation: mac-msg-in 0.18s ease-out both;
+}
+
+/* правый столбец «Сводка эфира» выезжает справа */
+@keyframes mac-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mac-panel {
+  animation: mac-panel-in 0.2s ease-out both;
+}
+
+/* активная плитка раздела в сайдбаре */
+@keyframes mac-pill-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.mac-pill {
+  animation: mac-pill-in 0.18s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mac-fade,
+  .mac-pop,
+  .mac-msg,
+  .mac-panel,
+  .mac-pill {
+    animation: none !important;
+  }
+}
+
+/* ============================== «macOS»: акцент и скроллбары ==============================
+   Акцент берётся из --accent (ставится на корень окна «macOS»), как в референсе. */
+.bg-accent {
+  background-color: var(--accent, #0a84ff);
+}
+.bg-accent-soft {
+  background-color: color-mix(in srgb, var(--accent, #0a84ff) 15%, transparent);
+}
+.text-accent {
+  color: var(--accent, #0a84ff);
+}
+.ring-accent {
+  --tw-ring-color: var(--accent, #0a84ff);
+}
+.border-accent {
+  border-color: var(--accent, #0a84ff);
+}
+
+.mac-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-gutter: stable;
+}
+.mac-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.mac-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+.mac-scroll::-webkit-scrollbar-track,
+.mac-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Декоры стилей (сканлайны CRT, неоновая сетка, диттеринг, линовка) */
+.decor {
+  opacity: 0.7;
+}
+.decor-scanlines {
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 3px);
+}
+.decor-grid {
+  background-image:
+    linear-gradient(rgba(255, 46, 151, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 46, 151, 0.13) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, transparent, #000 30%);
+}
+.decor-dots {
+  background-image: radial-gradient(rgba(127, 127, 127, 0.18) 1.1px, transparent 1.2px);
+  background-size: 11px 11px;
+}
+.decor-paper {
+  background-image: repeating-linear-gradient(0deg, transparent 0 26px, rgba(90, 110, 180, 0.16) 26px 27px);
 }

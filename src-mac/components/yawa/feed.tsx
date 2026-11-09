@@ -61,7 +61,6 @@ function Avatar({ author, color, platform, size }: { author: string; color: stri
 export function MessageRow({ msg, fx }: { msg: ChatMessage; fx: FeedFx }) {
   const p = fx.preset;
   const pal = tonePalette(p, fx.tone?.id);
-  const meta = platformMeta(msg.platform);
   const fontSize = fx.fontSize || p.fontSize;
   const padY = fx.densityPad ?? DENSITY_PAD[p.density];
   const anim =

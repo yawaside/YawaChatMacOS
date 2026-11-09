@@ -1,21 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AudioLines,
   Bell,
+  Bot,
+  ChartColumnBig,
   Check,
   ChevronDown,
+  CircleDot,
   Coins,
   Copy,
+  Disc3,
   Filter,
   Focus,
+  HandCoins,
   MessageSquare,
+  MessagesSquare,
   Mic2,
+  CornerDownLeft,
+  KeyRound,
   MonitorPlay,
+  Paintbrush,
+  PanelLeft,
   Palette,
   Pause,
+  PictureInPicture2,
   Play,
   Plus,
+  Radio,
   Search,
   Settings,
   Shield,
@@ -23,23 +35,28 @@ import {
   Trash2,
   Users,
   Volume2,
+  VolumeX,
   X,
   Zap,
 } from "lucide-react";
 import ShellFeed from "./ShellFeed";
 import appIcon from "../../assets/app-icon.jpg";
+import type { LucideIcon } from "lucide-react";
 import type { SettingsTabId } from "./SettingsShell";
 import { PlatformIcon, platformMeta } from "../../lib/platforms";
 import type { Channel, ChatMsg, ChatViewConfig, ModerationRequest, PlatformId } from "../../lib/types";
 
 /**
- * Раскладки окна «Воздух» и «Студия» — по референсу из src/proto.
+ * Раскладки окна «Воздух», «Студия» и «macOS» — по референсам из src/proto
+ * и src-mac.
  *
  * Внутри настоящие блоки приложения: лента со строкой отправки, список
  * каналов, сводка эфира. Вид меняет только оправу окна; тема сообщений,
  * виджета OBS и оверлея выбирается в своих разделах и здесь не трогается.
+ * «macOS» повторяет src-mac: светофоры в заголовке, вибрантные панели и
+ * сгруппированные разделы слева.
  */
-export type ShellKind = "air" | "studio";
+export type ShellKind = "air" | "studio" | "mac";
 
 export type FeedFilter = "all" | "important" | "donate" | "reward";
 
@@ -68,6 +85,8 @@ export interface ChatShellProps {
   onChatMode: (action: string, channel: string, platform: PlatformId, seconds?: number) => void;
   /** панель управления каналами: подключение, отключение, переподключение */
   channelsPanel: ReactNode;
+  /** «macOS»: включить/выключить канал из раздела «Каналы» */
+  onToggleChannel?: (channel: Channel) => void;
   channels: Channel[];
   onlineCount: number;
   connectedCount: number;
@@ -103,7 +122,9 @@ export interface ChatShellProps {
 }
 
 export default function ChatShell(p: ChatShellProps) {
-  return p.kind === "air" ? <AirShell {...p} /> : <StudioShell {...p} />;
+  if (p.kind === "air") return <AirShell {...p} />;
+  if (p.kind === "mac") return <MacShell {...p} />;
+  return <StudioShell {...p} />;
 }
 
 /* ============================== «Воздух» ==============================
@@ -995,6 +1016,741 @@ function SparkBars({ values }: { values: number[] }) {
         />
       ))}
     </div>
+  );
+}
+
+/* ============================== «macOS» ==============================
+   Референс — src-mac: окно macOS со светофорами, вибрантные панели,
+   сгруппированные разделы слева, Spotlight по Ctrl/Cmd+K и сводка эфира
+   справа. Разделы открываются прямо в окне, как в референсе: лента и
+   строка отправки, каналы, авторизация, чат-бот, донаты, озвучка, звуки
+   наград, оверлей, оформление и настройки — всё на месте. */
+
+import {
+  MacAppearancePanel,
+  MacAuthPanel,
+  MacChannelsPanel,
+  MacChatbotPanel,
+  MacDonationsPanel,
+  MacOverlayPanel,
+  MacRewardsPanel,
+  MacSettingsPanel,
+  MacVoicePanel,
+  type MacSectionId,
+} from "./mac/MacPanels";
+
+const SECTION_TITLES: Record<MacSectionId, string> = {
+  chat: "Чат",
+  channels: "Каналы",
+  auth: "Авторизация",
+  bot: "Чат-бот",
+  donations: "Донаты",
+  voice: "Озвучка",
+  sounds: "Звуки наград",
+  overlay: "Оверлей и OBS",
+  appearance: "Оформление",
+  settings: "Настройки",
+};
+
+interface MacSection {
+  id: MacSectionId;
+  name: string;
+  hint: string;
+  icon: LucideIcon;
+  tint: string;
+  group: string;
+}
+
+const MAC_SECTIONS: MacSection[] = [
+  {
+    id: "chat",
+    name: "Чат",
+    hint: "Единая лента всех площадок",
+    icon: MessagesSquare,
+    tint: "#0A84FF",
+    group: "Основное",
+  },
+  {
+    id: "channels",
+    name: "Каналы",
+    hint: "Подключённые стримы и статусы",
+    icon: Radio,
+    tint: "#BF5AF2",
+    group: "Основное",
+  },
+  {
+    id: "auth",
+    name: "Авторизация",
+    hint: "Вход в аккаунты площадок",
+    icon: KeyRound,
+    tint: "#5AC8FA",
+    group: "Основное",
+  },
+  {
+    id: "bot",
+    name: "Чат-бот",
+    hint: "Автоответы, режимы чата, модерация",
+    icon: Bot,
+    tint: "#FF9F0A",
+    group: "Основное",
+  },
+  {
+    id: "donations",
+    name: "Донаты",
+    hint: "DonationAlerts · DonatePay · MemeAlerts",
+    icon: HandCoins,
+    tint: "#FFD60A",
+    group: "Основное",
+  },
+  {
+    id: "voice",
+    name: "Озвучка",
+    hint: "Edge TTS и фильтры сообщений",
+    icon: AudioLines,
+    tint: "#30D158",
+    group: "Звук",
+  },
+  {
+    id: "sounds",
+    name: "Звуки наград",
+    hint: "Награды за баллы канала",
+    icon: Disc3,
+    tint: "#FF453A",
+    group: "Звук",
+  },
+  {
+    id: "overlay",
+    name: "Оверлей и OBS",
+    hint: "Окно поверх игры, виджет чата",
+    icon: PictureInPicture2,
+    tint: "#64D2FF",
+    group: "Эфир",
+  },
+  {
+    id: "appearance",
+    name: "Оформление",
+    hint: "Стили ленты, шрифты, плотность",
+    icon: Paintbrush,
+    tint: "#FF6482",
+    group: "Приложение",
+  },
+  {
+    id: "settings",
+    name: "Настройки",
+    hint: "Акцент, горячие клавиши, диагностика",
+    icon: Settings,
+    tint: "#98989D",
+    group: "Приложение",
+  },
+];
+
+const MAC_GROUPS: { title: string; items: MacSection[] }[] = ["Основное", "Звук", "Эфир", "Приложение"].map(
+  (title) => ({ title, items: MAC_SECTIONS.filter((s) => s.group === title) }),
+);
+
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+function MacShell(p: ChatShellProps) {
+  const [section, setSection] = useState<MacSectionId>("chat");
+  const [accent, setAccent] = useState("#0A84FF");
+  const [showStats, setShowStats] = useState(true);
+  const [spotlight, setSpotlight] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [chatSeen, setChatSeen] = useState(p.messages);
+  const live = p.onlineCount > 0;
+  const liveLabel = `${p.onlineCount} ${pluralRu(p.onlineCount, "площадка", "площадки", "площадок")}`;
+  const unread = section === "chat" ? 0 : Math.max(0, p.messages - chatSeen);
+
+  useEffect(() => {
+    if (section === "chat") setChatSeen(p.messages);
+  }, [section, p.messages]);
+
+  /* Spotlight: Ctrl/Cmd+K открывает быстрый переход, Esc закрывает. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSpotlight((s) => !s);
+      }
+      if (e.key === "Escape") setSpotlight(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const renderSection = () => {
+    switch (section) {
+      case "channels":
+        return (
+          <MacChannelsPanel
+            channels={p.channels}
+            onToggleChannel={p.onToggleChannel}
+            onAddChannel={p.onAddChannel}
+          />
+        );
+      case "auth":
+        return (
+          <MacAuthPanel
+            botAuth={p.botAuth}
+            channels={p.channels}
+            onOpenChatbot={() => p.onOpenSettings("chatbot")}
+            onOpenDonations={() => p.onOpenSettings("donations")}
+          />
+        );
+      case "bot":
+        return <MacChatbotPanel />;
+      case "donations":
+        return (
+          <MacDonationsPanel
+            feed={p.feed}
+            channels={p.channels}
+            onOpenDonationSettings={() => p.onOpenSettings("donations")}
+          />
+        );
+      case "voice":
+        return (
+          <MacVoicePanel
+            ttsOn={p.ttsOn}
+            onToggleTts={p.onToggleTts}
+            ttsVolume={p.ttsVolume}
+            onTtsVolume={p.onTtsVolume}
+            queueLength={p.queueLength}
+            onOpenVoiceSettings={() => p.onOpenSettings("voice")}
+          />
+        );
+      case "sounds":
+        return (
+          <MacRewardsPanel rewards={p.rewards} onOpenRewardSettings={() => p.onOpenSettings("rewards")} />
+        );
+      case "overlay":
+        return (
+          <MacOverlayPanel
+            feed={p.feed}
+            viewers={p.viewers}
+            widgetUrl={p.widgetUrl}
+            onCopyWidget={p.onCopyWidget}
+            onOpenOverlaySettings={() => p.onOpenSettings("overlay")}
+          />
+        );
+      case "appearance":
+        return <MacAppearancePanel feedStyleId={p.chatView.styleId} onOpenTab={p.onOpenSettings} />;
+      case "settings":
+        return <MacSettingsPanel accent={accent} onAccent={setAccent} onOpenTab={p.onOpenSettings} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div
+      className="relative flex min-h-0 flex-1"
+      style={{
+        ["--accent" as string]: accent,
+        background: "linear-gradient(165deg, #1D1D21 0%, #171719 45%, #131316 100%)",
+      }}
+    >
+      {!p.focusMode && (
+        <aside className="flex w-[224px] shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.045]">
+          <nav className="mac-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pt-2 pb-3" aria-label="Разделы">
+            {MAC_GROUPS.map((g) => (
+              <div key={g.title} className="mb-3">
+                <div className="px-2 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/35">
+                  {g.title}
+                </div>
+                <div className="flex flex-col gap-[3px]">
+                  {g.items.map((item) => {
+                    const active = section === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setSection(item.id)}
+                        aria-current={active ? "page" : undefined}
+                        className={`relative flex h-[34px] w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 text-left text-[13px] transition-colors ${
+                          active ? "text-white" : "text-white/65 hover:bg-white/[0.06] hover:text-white/90"
+                        }`}
+                      >
+                        {active && (
+                          <span className="mac-pill pointer-events-none absolute inset-0 rounded-[8px] bg-white/[0.12] shadow-[0_1px_2px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.06]" />
+                        )}
+                        <span
+                          className="relative grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[6px] text-white shadow-sm"
+                          style={{ background: `linear-gradient(160deg, ${item.tint}, ${item.tint}CC)` }}
+                        >
+                          <Icon size={13} strokeWidth={2} />
+                        </span>
+                        <span className="relative min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                        {item.id === "chat" && unread > 0 && !active && (
+                          <span className="relative shrink-0 rounded-full bg-[#FF453A] px-1.5 py-px text-[10px] font-bold tabular-nums text-white">
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          <div className="shrink-0 border-t border-white/[0.06] p-3">
+            <div className="flex items-center gap-2.5 rounded-[10px] bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#5E5CE6] to-[#BF5AF2] text-[13px] font-bold text-white shadow">
+                Y
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="truncate text-[12.5px] font-semibold text-white/90">yawaside</div>
+                <div
+                  className={`flex items-center gap-1 text-[10.5px] ${
+                    live ? "text-[#30D158]" : "text-white/35"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${live ? "bg-[#30D158]" : "bg-white/35"}`}
+                  />
+                  <span className="truncate">{live ? `В эфире · ${liveLabel}` : "Офлайн"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Заголовок окна: светофоры, название по центру, Spotlight и звук */}
+        <div
+          className="drag-region relative flex h-[52px] shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3"
+          onDoubleClick={p.onHeaderDoubleClick}
+        >
+          <div className="flex w-[220px] shrink-0 items-center gap-2">
+            {p.windowButtons}
+            <button
+              onClick={p.onToggleFocus}
+              className="no-drag ml-1 cursor-pointer rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white/85"
+              title={p.focusMode ? "Вернуть панели" : "Скрыть панели (только чат)"}
+              aria-label={p.focusMode ? "Вернуть панели" : "Скрыть панели"}
+              aria-pressed={p.focusMode}
+            >
+              <PanelLeft size={15} />
+            </button>
+          </div>
+
+          <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="text-[13px] font-semibold text-white/90">
+              YawaChat{p.focusMode ? "" : ` — ${SECTION_TITLES[section]}`}
+            </div>
+            <div
+              className={`flex h-3.5 items-center justify-center gap-1 text-[10px] ${
+                live ? "text-[#30D158]" : "text-white/35"
+              }`}
+            >
+              {live && <CircleDot size={7} fill="currentColor" />}
+              {live ? `В эфире · ${liveLabel}` : "Офлайн"}
+            </div>
+          </div>
+
+          <div className="ml-auto flex w-[220px] shrink-0 items-center justify-end gap-1.5">
+            <button
+              onClick={() => setSpotlight((s) => !s)}
+              title="Быстрый переход (Ctrl+K)"
+              aria-label="Быстрый переход"
+              className="no-drag flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/[0.06] text-white/60 ring-1 ring-white/10 transition-colors hover:bg-white/[0.12] hover:text-white/90"
+            >
+              <Search size={13} />
+            </button>
+            <button
+              onClick={p.onToggleTts}
+              title={p.ttsOn ? "Выключить озвучку (F9)" : "Включить озвучку (F9)"}
+              aria-pressed={p.ttsOn}
+              className={`no-drag flex h-7 w-[104px] cursor-pointer items-center justify-center gap-1.5 rounded-full text-[11px] font-medium ring-1 transition-colors ${
+                p.ttsOn
+                  ? "bg-white/[0.06] text-white/70 ring-white/10 hover:bg-white/10"
+                  : "bg-[#FF453A]/15 text-[#FF6B61] ring-[#FF453A]/30 hover:bg-[#FF453A]/20"
+              }`}
+            >
+              {p.ttsOn ? <Volume2 size={12} /> : <VolumeX size={12} />}
+              {p.ttsOn ? "Звук вкл" : "Звук выкл"}
+            </button>
+            {p.updateBadge}
+            {p.audioPanel}
+          </div>
+        </div>
+
+        {/* Полоса ленты: поиск, фильтры и переключатель сводки — только в разделе «Чат» */}
+        {section === "chat" && (
+          <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1">
+            <div className="relative w-[260px] max-w-[46vw]">
+              <Search
+                size={12}
+                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-white/35"
+              />
+              <input
+                value={p.search}
+                onChange={(e) => p.onSearch(e.target.value)}
+                placeholder="Поиск по ленте"
+                aria-label="Поиск по ленте"
+                className="w-full rounded-lg bg-white/[0.07] py-1.5 pr-3 pl-8 text-[12px] text-white/90 outline-none ring-1 ring-white/[0.08] ring-inset transition-shadow placeholder-white/30 focus:ring-2 focus:ring-[#0A84FF]/70"
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="relative">
+                <button
+                  onClick={() => setFilterOpen((v) => !v)}
+                  title="Фильтр ленты"
+                  aria-pressed={p.filter !== "all" || p.paused}
+                  className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
+                    p.filter !== "all" || p.paused
+                      ? "bg-[#0A84FF]/20 text-[#409CFF] ring-[#0A84FF]/40"
+                      : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
+                  }`}
+                >
+                  <Filter size={14} />
+                </button>
+                {filterOpen && (
+                  <div className="mac-pop absolute right-0 z-40 mt-1.5 w-[192px] overflow-hidden rounded-[12px] bg-[#26262B]/95 p-1 shadow-2xl ring-1 ring-white/[0.12] backdrop-blur-2xl">
+                    {AIR_FILTERS.map((f) => {
+                      const on = p.filter === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            p.onFilter(f.id);
+                            setFilterOpen(false);
+                          }}
+                          className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] capitalize text-white/80 transition-colors hover:bg-white/[0.08]"
+                        >
+                          {on ? <Check size={12} className="text-[#409CFF]" /> : <span className="w-3" />}
+                          {f.name}
+                        </button>
+                      );
+                    })}
+                    <div className="my-1 border-t border-white/[0.08]" />
+                    <button
+                      onClick={() => {
+                        p.onPause();
+                        setFilterOpen(false);
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition-colors hover:bg-white/[0.08]"
+                    >
+                      {p.paused ? <Play size={12} /> : <Pause size={12} />}
+                      {p.paused ? "Продолжить ленту" : "Пауза ленты"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilterOpen(false);
+                        p.onOpenSettings("filters");
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/70"
+                    >
+                      Настройки фильтров…
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowStats((s) => !s)}
+                title={showStats ? "Скрыть сводку эфира" : "Показать сводку эфира"}
+                aria-pressed={showStats}
+                className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
+                  showStats
+                    ? "bg-[#0A84FF] text-white ring-transparent"
+                    : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
+                }`}
+              >
+                <ChartColumnBig size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {section === "chat" ? (
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <ShellFeed
+                feed={p.feed}
+                channels={p.channels}
+                botAuth={p.botAuth}
+                maxFeed={p.maxFeed}
+                hideDeleted={p.hideDeleted}
+                mentionHL={p.mentionHL}
+                layout="mac"
+                view={p.chatView}
+                onClear={p.onClearFeed}
+                onChatMode={p.onChatMode}
+                onModerate={p.onModerate}
+                onSend={p.onSend}
+                emptyHint="сообщений пока нет — подключите канал"
+              />
+            </div>
+
+            {showStats && !p.focusMode && <MacStats p={p} live={live} />}
+          </div>
+        ) : (
+          <div key={section} className="mac-fade flex min-h-0 min-w-0 flex-1 flex-col">
+            {renderSection()}
+          </div>
+        )}
+      </div>
+
+      <MacSpotlight
+        open={spotlight}
+        onClose={() => setSpotlight(false)}
+        onPick={(s) => {
+          setSpotlight(false);
+          setSection(s.id);
+        }}
+      />
+    </div>
+  );
+}
+
+/** Быстрый переход по разделам (Spotlight): Ctrl/Cmd+K, стрелки и Enter. */
+function MacSpotlight({
+  open,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (s: MacSection) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [cursor, setCursor] = useState(0);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setCursor(0);
+    }
+  }, [open]);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return MAC_SECTIONS;
+    return MAC_SECTIONS.filter((s) => `${s.name} ${s.hint}`.toLowerCase().includes(q));
+  }, [query]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="mac-fade absolute inset-0 z-50 flex items-start justify-center bg-black/25 pt-[18vh]"
+      onMouseDown={onClose}
+      role="dialog"
+      aria-label="Быстрый переход"
+    >
+      <div
+        className="mac-pop w-[560px] max-w-[92vw] overflow-hidden rounded-[18px] bg-[#232326]/[0.92] shadow-[0_30px_90px_rgba(0,0,0,0.6)] ring-1 ring-white/[0.15] backdrop-blur-3xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 px-5 py-4">
+          <Search size={20} className="shrink-0 text-white/40" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCursor(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setCursor((c) => Math.min(c + 1, results.length - 1));
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setCursor((c) => Math.max(c - 1, 0));
+              }
+              if (e.key === "Enter" && results[cursor]) {
+                onPick(results[cursor]);
+              }
+              if (e.key === "Escape") onClose();
+            }}
+            placeholder="Быстрый переход · разделы YawaChat"
+            aria-label="Быстрый переход по разделам"
+            className="w-full bg-transparent text-[19px] font-light text-white/95 outline-none placeholder-white/30"
+          />
+        </div>
+        {results.length > 0 && (
+          <div className="border-t border-white/[0.08] p-2">
+            {results.map((r, i) => {
+              const on = i === cursor;
+              const Icon = r.icon;
+              return (
+                <button
+                  key={r.id}
+                  onMouseEnter={() => setCursor(i)}
+                  onClick={() => onPick(r)}
+                  className={`flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left transition-colors ${
+                    on ? "bg-[#0A84FF]" : "hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Icon size={17} className={on ? "text-white" : "text-white/60"} />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[14px] font-medium ${on ? "text-white" : "text-white/85"}`}>
+                      {r.name}
+                    </span>
+                    <span
+                      className={`block truncate text-[11.5px] ${on ? "text-white/75" : "text-white/40"}`}
+                    >
+                      {r.hint}
+                    </span>
+                  </span>
+                  {on && <CornerDownLeft size={13} className="shrink-0 text-white/80" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** «Сводка эфира» в духе macOS: плитки показателей, активность, озвучка и награды. */
+function MacStats({ p, live }: { p: ChatShellProps; live: boolean }) {
+  const peak = Math.max(p.viewers, ...p.viewersHistory, 0);
+  const bars = p.viewersHistory.length > 1 ? p.viewersHistory.slice(-14) : [0, 0];
+  const max = Math.max(1, peak);
+
+  return (
+    <aside className="mac-panel hidden w-[236px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.06] bg-white/[0.03] p-3 backdrop-blur-xl xl:flex">
+      <div className="flex h-5 items-center justify-between px-0.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/35">Сводка эфира</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold ${
+            live ? "bg-[#30D158]/15 text-[#30D158]" : "bg-white/[0.06] text-white/35"
+          }`}
+        >
+          {live ? "LIVE" : "ОФЛАЙН"}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          {
+            icon: <Users size={13} />,
+            tint: "#30D158",
+            label: "Зрители",
+            value: p.viewers.toLocaleString("ru-RU"),
+          },
+          {
+            icon: <MessageSquare size={13} />,
+            tint: "#0A84FF",
+            label: "Сообщений",
+            value: p.messages.toLocaleString("ru-RU"),
+          },
+          {
+            icon: <Coins size={13} />,
+            tint: "#FFD60A",
+            label: "Донаты",
+            value: `${p.donateTotal.toLocaleString("ru-RU")} ${p.donateCurrency}`,
+          },
+          {
+            icon: <Radio size={13} />,
+            tint: "#BF5AF2",
+            label: "Площадки",
+            value: String(p.onlineCount),
+          },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="min-w-0 rounded-[12px] bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06]"
+          >
+            <span style={{ color: s.tint }}>{s.icon}</span>
+            <div className="mt-1.5 truncate text-[15px] font-bold tabular-nums text-white/90">{s.value}</div>
+            <div className="truncate text-[10px] text-white/40">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-[12px] bg-white/[0.05] p-3 ring-1 ring-white/[0.06]">
+        <div className="flex h-4 items-center justify-between">
+          <span className="text-[11px] font-medium text-white/50">Активность чата</span>
+          <span className="text-[10px] tabular-nums text-white/35">пик {peak.toLocaleString("ru-RU")}</span>
+        </div>
+        <div className="mt-2 flex h-12 items-end gap-[3px]">
+          {bars.map((v, i) => (
+            <div
+              key={i}
+              className="flex-1 rounded-sm bg-gradient-to-t from-[#0A84FF]/35 to-[#64D2FF] transition-all duration-500"
+              style={{ height: `${Math.max(8, (v / max) * 100)}%` }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-[12px] bg-white/[0.05] p-3 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <Mic2 size={13} className="text-[#30D158]" />
+          <span className="text-[11.5px] font-semibold text-white/85">Озвучка</span>
+          <button
+            role="switch"
+            aria-checked={p.ttsOn}
+            aria-label="Озвучка"
+            onClick={p.onToggleTts}
+            className={`ml-auto flex h-[22px] w-[38px] shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors ${
+              p.ttsOn ? "justify-end bg-[#30D158]" : "bg-white/[0.16]"
+            }`}
+          >
+            <span className="h-[18px] w-[18px] rounded-full bg-white shadow" />
+          </button>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <Volume2 size={13} className="shrink-0 text-white/40" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={p.ttsVolume}
+            onChange={(e) => p.onTtsVolume(Number(e.target.value))}
+            className="h-1.5 flex-1 cursor-pointer"
+            /* --fill задаёт закрашенную часть дорожки, как в остальных видах */
+            style={{ "--fill": `${Math.round(p.ttsVolume * 100)}%` } as React.CSSProperties}
+            title="Громкость озвучки"
+            aria-label="Громкость озвучки"
+          />
+          <span className="w-8 text-right text-[10.5px] tabular-nums text-white/45">
+            {Math.round(p.ttsVolume * 100)}%
+          </span>
+        </div>
+        {p.queueLength > 0 && <p className="mt-1 text-[10.5px] text-white/40">в очереди: {p.queueLength}</p>}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col rounded-[12px] bg-white/[0.05] p-3 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <Coins size={13} className="text-[#FFD60A]" />
+          <span className="text-[11.5px] font-semibold text-white/85">Награды</span>
+          <span className="ml-auto text-[10.5px] tabular-nums text-white/40">{p.rewards.length}</span>
+        </div>
+        <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+          {p.rewards.length === 0 && <p className="text-[11px] text-white/35">пока нет наград</p>}
+          {p.rewards.slice(0, 8).map((r) => (
+            <div key={`${r.platform}-${r.title}`} className="flex items-center gap-2 text-[11.5px]">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: platformMeta(r.platform).color }}
+              />
+              <span className="min-w-0 flex-1 truncate text-white/80">{r.title}</span>
+              <span className="shrink-0 tabular-nums text-white/40">{r.cost ? `${r.cost} б.` : "—"}</span>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => p.onOpenSettings("rewards")}
+          className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1 rounded-[10px] bg-[#0A84FF] py-1.5 text-[11px] font-semibold text-white transition-all hover:brightness-110"
+        >
+          <Plus size={12} /> Новая награда
+        </button>
+      </div>
+    </aside>
   );
 }
 

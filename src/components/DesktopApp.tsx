@@ -10,7 +10,7 @@ import HeaderAudioControl from "./app/HeaderAudioControl";
 
 import SettingsShell from "./app/SettingsShell";
 import type { SettingsTabId } from "./app/SettingsShell";
-import { IconBtn } from "./app/ui";
+import { IconBtn, TrafficLights } from "./app/ui";
 
 import { getVariant } from "../lib/variants";
 import { DEFAULT_FILTER_BLOCKS, type FilterBlock, checkMessageFilters } from "../lib/filters";
@@ -176,6 +176,31 @@ const STUDIO_TOKENS = {
   "--dw-accent-ink": "#0b0d10",
 } as React.CSSProperties;
 
+/* «macOS»: вибрантное окно — тёмная основа, стеклянные панели,
+   системный синий акцент. По мотивам src-mac. */
+const MAC_TOKENS = {
+  "--dw-bg": "#131316",
+  "--dw-panel": "#1c1c1f",
+  "--dw-panel2": "#242428",
+  "--dw-line": "rgba(255,255,255,0.10)",
+  "--dw-text": "#f5f5f7",
+  "--dw-dim": "#98989d",
+  "--dw-hover": "rgba(255,255,255,0.07)",
+  "--dw-input": "rgba(255,255,255,0.08)",
+  "--dw-scroll": "rgba(255,255,255,0.22)",
+  "--dw-range-rest": "rgba(255,255,255,0.18)",
+  "--dw-accent": "#0A84FF",
+  "--dw-accent-2": "#409CFF",
+  "--dw-accent-ink": "#ffffff",
+} as React.CSSProperties;
+
+/** Палитра окна по виду: ключи совпадают с VariantId из lib/variants. */
+const VARIANT_TOKENS: Record<string, React.CSSProperties> = {
+  air: AIR_TOKENS,
+  studio: STUDIO_TOKENS,
+  mac: MAC_TOKENS,
+};
+
 let qSeq = 100;
 
 export default function DesktopApp() {
@@ -216,7 +241,7 @@ function DesktopWindow({
   const [feedPaused, setFeedPaused] = useState(false);
   const [feedSnapshot, setFeedSnapshot] = useState<ChatMsg[] | null>(null);
   const [feedSearch, setFeedSearch] = useState("");
-  /* история зрителей для графика в «Воздухе» и «Студии» */
+  /* история зрителей для графиков во всех видах окна */
   const [viewersHistory, setViewersHistory] = useState<number[]>([]);
   const [subs, setSubs, subsLoaded] = usePersisted<ChannelSub[]>("subscriptions", []);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -2283,38 +2308,53 @@ function DesktopWindow({
     );
   }, [feed, feedPaused, feedSnapshot, airFilter, feedSearch]);
 
-  const winBtns = (
-    <>
-      <IconBtn
-        icon={<Minus size={14} />}
-        title={minimizeToTray ? "Свернуть в трей" : "Свернуть"}
-        onClick={() => {
-          windowCtl.minimize();
-          if (!desktop) toast("В приложении окно сворачивается на панель задач");
-        }}
+  /* Общие действия окна: кнопки разные (обычные или «светофоры»), поведение одно. */
+  const windowMinimize = () => {
+    windowCtl.minimize();
+    if (!desktop) toast("В приложении окно сворачивается на панель задач");
+  };
+  const windowToggleMaximize = () => {
+    windowCtl.toggleMaximize();
+    // В приложении состояние придёт событием окна (window.state):
+    // сами его не выставляем, иначе кнопка может «залипнуть» в
+    // неверном положении, если развернуть окно не получилось.
+    if (!desktop) setMaximized((v) => !v);
+  };
+  const windowClose = () => {
+    windowCtl.close(closeToTray);
+    if (!desktop) toast(closeToTray ? "Окно ушло бы в трей" : "В приложении окно закрывается");
+  };
+
+  const winBtns =
+    variant.id === "mac" ? (
+      <TrafficLights
+        onClose={windowClose}
+        onMinimize={windowMinimize}
+        onToggleMaximize={windowToggleMaximize}
+        maximized={maximized}
+        minimizeToTray={minimizeToTray}
+        closeToTray={closeToTray}
       />
-      <IconBtn
-        icon={maximized ? <Copy size={12} style={{ transform: "rotate(180deg)" }} /> : <Square size={12} />}
-        title={maximized ? "Оконный режим" : "Во весь экран"}
-        onClick={() => {
-          windowCtl.toggleMaximize();
-          // В приложении состояние придёт событием окна (window.state):
-          // сами его не выставляем, иначе кнопка может «залипнуть» в
-          // неверном положении, если развернуть окно не получилось.
-          if (!desktop) setMaximized((v) => !v);
-        }}
-      />
-      <IconBtn
-        icon={<X size={15} />}
-        title={closeToTray ? "Скрыть в трей" : "Закрыть"}
-        danger
-        onClick={() => {
-          windowCtl.close(closeToTray);
-          if (!desktop) toast(closeToTray ? "Окно ушло бы в трей" : "В приложении окно закрывается");
-        }}
-      />
-    </>
-  );
+    ) : (
+      <>
+        <IconBtn
+          icon={<Minus size={14} />}
+          title={minimizeToTray ? "Свернуть в трей" : "Свернуть"}
+          onClick={windowMinimize}
+        />
+        <IconBtn
+          icon={maximized ? <Copy size={12} style={{ transform: "rotate(180deg)" }} /> : <Square size={12} />}
+          title={maximized ? "Оконный режим" : "Во весь экран"}
+          onClick={windowToggleMaximize}
+        />
+        <IconBtn
+          icon={<X size={15} />}
+          title={closeToTray ? "Скрыть в трей" : "Закрыть"}
+          danger
+          onClick={windowClose}
+        />
+      </>
+    );
 
   const channelsBody = (
     <ChannelsPanel
@@ -2346,7 +2386,7 @@ function DesktopWindow({
       <div
         className="flex min-h-0 flex-1 flex-col"
         style={{
-          ...(variant.id === "air" ? AIR_TOKENS : STUDIO_TOKENS),
+          ...VARIANT_TOKENS[variant.id],
           /* цвет и фон задаём здесь же: элементы без своего цвета
              наследуют их от окна, иначе светлая палитра получала
              белый текст от тёмных значений по умолчанию */
@@ -2358,6 +2398,14 @@ function DesktopWindow({
           kind={variant.id}
           channels={channels}
           channelsPanel={channelsBody}
+          onToggleChannel={(ch) => {
+            /* «macOS» → раздел «Каналы»: включённый канал отключаем, отключённый — переподключаем */
+            if (ch.status === "online" || ch.status === "connected" || ch.status === "connecting") {
+              disconnectChannel(ch.id);
+            } else {
+              reconnectChannel(ch.id);
+            }
+          }}
           feed={visibleFeed}
           maxFeed={maxFeed}
           hideDeleted={hideDeleted}
@@ -2472,7 +2520,7 @@ function DesktopWindow({
       )}
 
       {/* все настройки — под шестерёнкой */}
-      <div style={variant.id === "air" ? AIR_TOKENS : STUDIO_TOKENS}>
+      <div style={VARIANT_TOKENS[variant.id]}>
         <SettingsShell
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}

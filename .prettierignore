@@ -26,3 +26,7 @@ src/lib/presets.ts
 src/lib/filters.ts
 src/lib/demoChat.ts
 src/lib/donateSounds.ts
+
+# Прототип «macOS»-окна (src-mac): код извне, к сборке не относится;
+# стиль его файлов оставляем как есть. Вид «macOS» в приложении оформлен в src/.
+src-mac/
