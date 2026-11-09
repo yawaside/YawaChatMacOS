@@ -85,6 +85,8 @@ export interface ChatShellProps {
   onChatMode: (action: string, channel: string, platform: PlatformId, seconds?: number) => void;
   /** панель управления каналами: подключение, отключение, переподключение */
   channelsPanel: ReactNode;
+  /** «macOS»: включить/выключить канал из раздела «Каналы» */
+  onToggleChannel?: (channel: Channel) => void;
   channels: Channel[];
   onlineCount: number;
   connectedCount: number;
@@ -1020,22 +1022,43 @@ function SparkBars({ values }: { values: number[] }) {
 /* ============================== «macOS» ==============================
    Референс — src-mac: окно macOS со светофорами, вибрантные панели,
    сгруппированные разделы слева, Spotlight по Ctrl/Cmd+K и сводка эфира
-   справа. Внутри — настоящие блоки приложения: лента и строка отправки,
-   окно каналов, вкладки настроек — всё работает, как и в других видах. */
+   справа. Разделы открываются прямо в окне, как в референсе: лента и
+   строка отправки, каналы, авторизация, чат-бот, донаты, озвучка, звуки
+   наград, оверлей, оформление и настройки — всё на месте. */
+
+import {
+  MacAppearancePanel,
+  MacAuthPanel,
+  MacChannelsPanel,
+  MacChatbotPanel,
+  MacDonationsPanel,
+  MacOverlayPanel,
+  MacRewardsPanel,
+  MacSettingsPanel,
+  MacVoicePanel,
+  type MacSectionId,
+} from "./mac/MacPanels";
+
+const SECTION_TITLES: Record<MacSectionId, string> = {
+  chat: "Чат",
+  channels: "Каналы",
+  auth: "Авторизация",
+  bot: "Чат-бот",
+  donations: "Донаты",
+  voice: "Озвучка",
+  sounds: "Звуки наград",
+  overlay: "Оверлей и OBS",
+  appearance: "Оформление",
+  settings: "Настройки",
+};
 
 interface MacSection {
-  id: string;
+  id: MacSectionId;
   name: string;
   hint: string;
   icon: LucideIcon;
   tint: string;
   group: string;
-  /** текущий раздел: кнопка подсвечена, перехода нет */
-  current?: boolean;
-  /** открыть окно каналов */
-  dialog?: boolean;
-  /** открыть вкладку настроек */
-  tab?: SettingsTabId;
 }
 
 const MAC_SECTIONS: MacSection[] = [
@@ -1046,7 +1069,6 @@ const MAC_SECTIONS: MacSection[] = [
     icon: MessagesSquare,
     tint: "#0A84FF",
     group: "Основное",
-    current: true,
   },
   {
     id: "channels",
@@ -1055,16 +1077,14 @@ const MAC_SECTIONS: MacSection[] = [
     icon: Radio,
     tint: "#BF5AF2",
     group: "Основное",
-    dialog: true,
   },
   {
     id: "auth",
     name: "Авторизация",
-    hint: "Вход в аккаунты площадок и чат-бота",
+    hint: "Вход в аккаунты площадок",
     icon: KeyRound,
     tint: "#5AC8FA",
     group: "Основное",
-    tab: "chatbot",
   },
   {
     id: "bot",
@@ -1073,7 +1093,6 @@ const MAC_SECTIONS: MacSection[] = [
     icon: Bot,
     tint: "#FF9F0A",
     group: "Основное",
-    tab: "chatbot",
   },
   {
     id: "donations",
@@ -1082,16 +1101,14 @@ const MAC_SECTIONS: MacSection[] = [
     icon: HandCoins,
     tint: "#FFD60A",
     group: "Основное",
-    tab: "donations",
   },
   {
     id: "voice",
     name: "Озвучка",
-    hint: "Edge TTS, голос и громкость",
+    hint: "Edge TTS и фильтры сообщений",
     icon: AudioLines,
     tint: "#30D158",
     group: "Звук",
-    tab: "voice",
   },
   {
     id: "sounds",
@@ -1100,7 +1117,6 @@ const MAC_SECTIONS: MacSection[] = [
     icon: Disc3,
     tint: "#FF453A",
     group: "Звук",
-    tab: "rewards",
   },
   {
     id: "overlay",
@@ -1109,25 +1125,22 @@ const MAC_SECTIONS: MacSection[] = [
     icon: PictureInPicture2,
     tint: "#64D2FF",
     group: "Эфир",
-    tab: "overlay",
   },
   {
     id: "appearance",
     name: "Оформление",
-    hint: "Вид окна и оформление ленты",
+    hint: "Стили ленты, шрифты, плотность",
     icon: Paintbrush,
     tint: "#FF6482",
     group: "Приложение",
-    tab: "view",
   },
   {
     id: "settings",
     name: "Настройки",
-    hint: "Приложение, горячие клавиши, диагностика",
+    hint: "Акцент, горячие клавиши, диагностика",
     icon: Settings,
     tint: "#98989D",
     group: "Приложение",
-    tab: "system",
   },
 ];
 
@@ -1144,21 +1157,19 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
 }
 
 function MacShell(p: ChatShellProps) {
-  const [manageOpen, setManageOpen] = useState(false);
+  const [section, setSection] = useState<MacSectionId>("chat");
+  const [accent, setAccent] = useState("#0A84FF");
   const [showStats, setShowStats] = useState(true);
   const [spotlight, setSpotlight] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [chatSeen, setChatSeen] = useState(p.messages);
   const live = p.onlineCount > 0;
   const liveLabel = `${p.onlineCount} ${pluralRu(p.onlineCount, "площадка", "площадки", "площадок")}`;
+  const unread = section === "chat" ? 0 : Math.max(0, p.messages - chatSeen);
 
-  const pick = (s: MacSection) => {
-    if (s.current) return;
-    if (s.dialog) {
-      setManageOpen(true);
-      return;
-    }
-    if (s.tab) p.onOpenSettings(s.tab);
-  };
+  useEffect(() => {
+    if (section === "chat") setChatSeen(p.messages);
+  }, [section, p.messages]);
 
   /* Spotlight: Ctrl/Cmd+K открывает быстрый переход, Esc закрывает. */
   useEffect(() => {
@@ -1173,14 +1184,80 @@ function MacShell(p: ChatShellProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const renderSection = () => {
+    switch (section) {
+      case "channels":
+        return (
+          <MacChannelsPanel
+            channels={p.channels}
+            onToggleChannel={p.onToggleChannel}
+            onAddChannel={p.onAddChannel}
+          />
+        );
+      case "auth":
+        return (
+          <MacAuthPanel
+            botAuth={p.botAuth}
+            channels={p.channels}
+            onOpenChatbot={() => p.onOpenSettings("chatbot")}
+            onOpenDonations={() => p.onOpenSettings("donations")}
+          />
+        );
+      case "bot":
+        return <MacChatbotPanel />;
+      case "donations":
+        return (
+          <MacDonationsPanel
+            feed={p.feed}
+            channels={p.channels}
+            onOpenDonationSettings={() => p.onOpenSettings("donations")}
+          />
+        );
+      case "voice":
+        return (
+          <MacVoicePanel
+            ttsOn={p.ttsOn}
+            onToggleTts={p.onToggleTts}
+            ttsVolume={p.ttsVolume}
+            onTtsVolume={p.onTtsVolume}
+            queueLength={p.queueLength}
+            onOpenVoiceSettings={() => p.onOpenSettings("voice")}
+          />
+        );
+      case "sounds":
+        return (
+          <MacRewardsPanel rewards={p.rewards} onOpenRewardSettings={() => p.onOpenSettings("rewards")} />
+        );
+      case "overlay":
+        return (
+          <MacOverlayPanel
+            feed={p.feed}
+            viewers={p.viewers}
+            widgetUrl={p.widgetUrl}
+            onCopyWidget={p.onCopyWidget}
+            onOpenOverlaySettings={() => p.onOpenSettings("overlay")}
+          />
+        );
+      case "appearance":
+        return <MacAppearancePanel feedStyleId={p.chatView.styleId} onOpenTab={p.onOpenSettings} />;
+      case "settings":
+        return <MacSettingsPanel accent={accent} onAccent={setAccent} onOpenTab={p.onOpenSettings} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div
       className="relative flex min-h-0 flex-1"
-      style={{ background: "linear-gradient(165deg, #1D1D21 0%, #171719 45%, #131316 100%)" }}
+      style={{
+        ["--accent" as string]: accent,
+        background: "linear-gradient(165deg, #1D1D21 0%, #171719 45%, #131316 100%)",
+      }}
     >
       {!p.focusMode && (
         <aside className="flex w-[224px] shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.045]">
-          <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-2 pb-3" aria-label="Разделы">
+          <nav className="mac-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pt-2 pb-3" aria-label="Разделы">
             {MAC_GROUPS.map((g) => (
               <div key={g.title} className="mb-3">
                 <div className="px-2 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/35">
@@ -1188,12 +1265,12 @@ function MacShell(p: ChatShellProps) {
                 </div>
                 <div className="flex flex-col gap-[3px]">
                   {g.items.map((item) => {
-                    const active = !!item.current;
+                    const active = section === item.id;
                     const Icon = item.icon;
                     return (
                       <button
                         key={item.id}
-                        onClick={() => pick(item)}
+                        onClick={() => setSection(item.id)}
                         aria-current={active ? "page" : undefined}
                         className={`relative flex h-[34px] w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 text-left text-[13px] transition-colors ${
                           active ? "text-white" : "text-white/65 hover:bg-white/[0.06] hover:text-white/90"
@@ -1209,6 +1286,11 @@ function MacShell(p: ChatShellProps) {
                           <Icon size={13} strokeWidth={2} />
                         </span>
                         <span className="relative min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                        {item.id === "chat" && unread > 0 && !active && (
+                          <span className="relative shrink-0 rounded-full bg-[#FF453A] px-1.5 py-px text-[10px] font-bold tabular-nums text-white">
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1241,7 +1323,7 @@ function MacShell(p: ChatShellProps) {
       )}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Заголовок окна: светофоры, название по центру, звук */}
+        {/* Заголовок окна: светофоры, название по центру, Spotlight и звук */}
         <div
           className="drag-region relative flex h-[52px] shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3"
           onDoubleClick={p.onHeaderDoubleClick}
@@ -1261,7 +1343,7 @@ function MacShell(p: ChatShellProps) {
 
           <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
             <div className="text-[13px] font-semibold text-white/90">
-              YawaChat{p.focusMode ? "" : " — Чат"}
+              YawaChat{p.focusMode ? "" : ` — ${SECTION_TITLES[section]}`}
             </div>
             <div
               className={`flex h-3.5 items-center justify-center gap-1 text-[10px] ${
@@ -1300,124 +1382,128 @@ function MacShell(p: ChatShellProps) {
           </div>
         </div>
 
-        {/* Поиск по ленте и переключатель сводки — узкая полоса, как в референсе */}
-        <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1">
-          <div className="relative w-[260px] max-w-[46vw]">
-            <Search
-              size={12}
-              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-white/35"
-            />
-            <input
-              value={p.search}
-              onChange={(e) => p.onSearch(e.target.value)}
-              placeholder="Поиск по ленте"
-              aria-label="Поиск по ленте"
-              className="w-full rounded-lg bg-white/[0.07] py-1.5 pr-3 pl-8 text-[12px] text-white/90 outline-none ring-1 ring-white/[0.08] ring-inset transition-shadow placeholder-white/30 focus:ring-2 focus:ring-[#0A84FF]/70"
-            />
-          </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <div className="relative">
+        {/* Полоса ленты: поиск, фильтры и переключатель сводки — только в разделе «Чат» */}
+        {section === "chat" && (
+          <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1">
+            <div className="relative w-[260px] max-w-[46vw]">
+              <Search
+                size={12}
+                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-white/35"
+              />
+              <input
+                value={p.search}
+                onChange={(e) => p.onSearch(e.target.value)}
+                placeholder="Поиск по ленте"
+                aria-label="Поиск по ленте"
+                className="w-full rounded-lg bg-white/[0.07] py-1.5 pr-3 pl-8 text-[12px] text-white/90 outline-none ring-1 ring-white/[0.08] ring-inset transition-shadow placeholder-white/30 focus:ring-2 focus:ring-[#0A84FF]/70"
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="relative">
+                <button
+                  onClick={() => setFilterOpen((v) => !v)}
+                  title="Фильтр ленты"
+                  aria-pressed={p.filter !== "all" || p.paused}
+                  className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
+                    p.filter !== "all" || p.paused
+                      ? "bg-[#0A84FF]/20 text-[#409CFF] ring-[#0A84FF]/40"
+                      : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
+                  }`}
+                >
+                  <Filter size={14} />
+                </button>
+                {filterOpen && (
+                  <div className="mac-pop absolute right-0 z-40 mt-1.5 w-[192px] overflow-hidden rounded-[12px] bg-[#26262B]/95 p-1 shadow-2xl ring-1 ring-white/[0.12] backdrop-blur-2xl">
+                    {AIR_FILTERS.map((f) => {
+                      const on = p.filter === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            p.onFilter(f.id);
+                            setFilterOpen(false);
+                          }}
+                          className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] capitalize text-white/80 transition-colors hover:bg-white/[0.08]"
+                        >
+                          {on ? <Check size={12} className="text-[#409CFF]" /> : <span className="w-3" />}
+                          {f.name}
+                        </button>
+                      );
+                    })}
+                    <div className="my-1 border-t border-white/[0.08]" />
+                    <button
+                      onClick={() => {
+                        p.onPause();
+                        setFilterOpen(false);
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition-colors hover:bg-white/[0.08]"
+                    >
+                      {p.paused ? <Play size={12} /> : <Pause size={12} />}
+                      {p.paused ? "Продолжить ленту" : "Пауза ленты"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilterOpen(false);
+                        p.onOpenSettings("filters");
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/70"
+                    >
+                      Настройки фильтров…
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
-                onClick={() => setFilterOpen((v) => !v)}
-                title="Фильтр ленты"
-                aria-pressed={p.filter !== "all" || p.paused}
+                onClick={() => setShowStats((s) => !s)}
+                title={showStats ? "Скрыть сводку эфира" : "Показать сводку эфира"}
+                aria-pressed={showStats}
                 className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
-                  p.filter !== "all" || p.paused
-                    ? "bg-[#0A84FF]/20 text-[#409CFF] ring-[#0A84FF]/40"
+                  showStats
+                    ? "bg-[#0A84FF] text-white ring-transparent"
                     : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
                 }`}
               >
-                <Filter size={14} />
+                <ChartColumnBig size={15} />
               </button>
-              {filterOpen && (
-                <div className="mac-pop absolute right-0 z-40 mt-1.5 w-[192px] overflow-hidden rounded-[12px] bg-[#26262B]/95 p-1 shadow-2xl ring-1 ring-white/[0.12] backdrop-blur-2xl">
-                  {AIR_FILTERS.map((f) => {
-                    const on = p.filter === f.id;
-                    return (
-                      <button
-                        key={f.id}
-                        onClick={() => {
-                          p.onFilter(f.id);
-                          setFilterOpen(false);
-                        }}
-                        className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] capitalize text-white/80 transition-colors hover:bg-white/[0.08]"
-                      >
-                        {on ? <Check size={12} className="text-[#409CFF]" /> : <span className="w-3" />}
-                        {f.name}
-                      </button>
-                    );
-                  })}
-                  <div className="my-1 border-t border-white/[0.08]" />
-                  <button
-                    onClick={() => {
-                      p.onPause();
-                      setFilterOpen(false);
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition-colors hover:bg-white/[0.08]"
-                  >
-                    {p.paused ? <Play size={12} /> : <Pause size={12} />}
-                    {p.paused ? "Продолжить ленту" : "Пауза ленты"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFilterOpen(false);
-                      p.onOpenSettings("filters");
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/70"
-                  >
-                    Настройки фильтров…
-                  </button>
-                </div>
-              )}
             </div>
-            <button
-              onClick={() => setShowStats((s) => !s)}
-              title={showStats ? "Скрыть сводку эфира" : "Показать сводку эфира"}
-              aria-pressed={showStats}
-              className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg ring-1 transition-colors ${
-                showStats
-                  ? "bg-[#0A84FF] text-white ring-transparent"
-                  : "bg-white/[0.06] text-white/55 ring-white/10 hover:bg-white/[0.12] hover:text-white/85"
-              }`}
-            >
-              <ChartColumnBig size={15} />
-            </button>
           </div>
-        </div>
+        )}
 
-        <div className="flex min-h-0 flex-1">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <ShellFeed
-              feed={p.feed}
-              channels={p.channels}
-              botAuth={p.botAuth}
-              maxFeed={p.maxFeed}
-              hideDeleted={p.hideDeleted}
-              mentionHL={p.mentionHL}
-              layout="mac"
-              view={p.chatView}
-              onClear={p.onClearFeed}
-              onChatMode={p.onChatMode}
-              onModerate={p.onModerate}
-              onSend={p.onSend}
-              emptyHint="сообщений пока нет — подключите канал"
-            />
+        {section === "chat" ? (
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <ShellFeed
+                feed={p.feed}
+                channels={p.channels}
+                botAuth={p.botAuth}
+                maxFeed={p.maxFeed}
+                hideDeleted={p.hideDeleted}
+                mentionHL={p.mentionHL}
+                layout="mac"
+                view={p.chatView}
+                onClear={p.onClearFeed}
+                onChatMode={p.onChatMode}
+                onModerate={p.onModerate}
+                onSend={p.onSend}
+                emptyHint="сообщений пока нет — подключите канал"
+              />
+            </div>
+
+            {showStats && !p.focusMode && <MacStats p={p} live={live} />}
           </div>
-
-          {showStats && !p.focusMode && <MacStats p={p} live={live} />}
-        </div>
+        ) : (
+          <div key={section} className="mac-fade flex min-h-0 min-w-0 flex-1 flex-col">
+            {renderSection()}
+          </div>
+        )}
       </div>
-
-      <ChannelsDialog open={manageOpen} onClose={() => setManageOpen(false)}>
-        {p.channelsPanel}
-      </ChannelsDialog>
 
       <MacSpotlight
         open={spotlight}
         onClose={() => setSpotlight(false)}
         onPick={(s) => {
           setSpotlight(false);
-          pick(s);
+          setSection(s.id);
         }}
       />
     </div>

@@ -2398,6 +2398,14 @@ function DesktopWindow({
           kind={variant.id}
           channels={channels}
           channelsPanel={channelsBody}
+          onToggleChannel={(ch) => {
+            /* «macOS» → раздел «Каналы»: включённый канал отключаем, отключённый — переподключаем */
+            if (ch.status === "online" || ch.status === "connected" || ch.status === "connecting") {
+              disconnectChannel(ch.id);
+            } else {
+              reconnectChannel(ch.id);
+            }
+          }}
           feed={visibleFeed}
           maxFeed={maxFeed}
           hideDeleted={hideDeleted}

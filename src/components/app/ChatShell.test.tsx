@@ -86,13 +86,17 @@ describe("ChatShell", () => {
   });
 
   it("«macOS» показывает заголовок, светофоры и сводку эфира", () => {
-    const html = renderToString(createElement(ChatShell, makeProps("mac")));
-    expect(html).toContain("YawaChat");
+    /* React SSR вставляет <!-- --> между текстовыми узлами — сравниваем без них */
+    const html = renderToString(createElement(ChatShell, makeProps("mac"))).replace(/<!--.*?-->/g, "");
+    expect(html).toContain("YawaChat — Чат");
     expect(html).toContain("Сводка эфира");
     expect(html).toContain("Основное");
     expect(html).toContain("Приложение");
     expect(html).toContain("Оверлей и OBS");
     expect(html).toContain("Авторизация");
+    expect(html).toContain("Чат-бот");
+    expect(html).toContain("Донаты");
+    expect(html).toContain("Звуки наград");
     expect(html).toContain("yawaside");
     /* Spotlight закрыт по умолчанию (кнопка быстрого перехода в заголовке есть) */
     expect(html).not.toContain("Быстрый переход · разделы YawaChat");
