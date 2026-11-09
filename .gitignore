@@ -1,0 +1,32 @@
+# зависимости обоих npm-пакетов; мост TikTok получает их через npm ci при сборке
+node_modules/
+
+# сборка рендерера (CI собирает сам; локально — npm run build)
+dist/
+
+# сборка .NET хоста
+publish/
+**/bin/
+**/obj/
+*.user
+
+# встроенный рантайм хоста (генерируется scripts/bundle-runtime.mjs перед publish)
+webview2/runtime/
+
+# артефакты и служебное
+*.zip
+release-notes.md
+.vs/
+.vscode/
+*.log
+
+# картинки, скачанные поиском при подборе оформления
+image-search/
+
+# секреты песочницы (не коммитить в GitHub)
+.env
+tsconfig.tsbuildinfo
+
+# сборка Next.js (вспомогательный сайт)
+.next/
+next-env.d.ts

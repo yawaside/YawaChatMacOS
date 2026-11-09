@@ -1,0 +1,16 @@
+# Единый конец строк для Linux, macOS и Windows CI.
+* text=auto eol=lf
+
+# Бинарные файлы не должны проходить нормализацию Git.
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.exe binary
+*.dll binary
+*.pdb binary
+*.zip binary
+*.mp3 binary
+*.wav binary

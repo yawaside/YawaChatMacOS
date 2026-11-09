@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Проверяем тот же код, что собирается в Windows-хост, без WinForms и NuGet. -->
+    <Compile Include="../../webview2/AppLog.cs" Link="AppLog.cs" />
+  </ItemGroup>
+</Project>

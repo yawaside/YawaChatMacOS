@@ -1,0 +1,28 @@
+# Сборка и зависимости
+dist/
+node_modules/
+**/node_modules/
+package-lock.json
+tiktok-bridge/package-lock.json
+
+# Встроенный рантайм (генерируется scripts/bundle-runtime.mjs)
+webview2/runtime/
+
+# C#-хост: его форматирует не Prettier
+webview2/
+
+# Документация пишется и вычитывается вручную (правила — в Info/AGENTS.md):
+# автоматическая перекладка таблиц и списков здесь только мешает
+*.md
+
+# Таблицы данных. Плотная раскладка в них намеренная: Prettier разворачивает
+# каждую запись на несколько строк, и таблицу становится невозможно читать
+# (youtubeEmojis.ts растёт со 127 до 277 строк, presets.ts — с 464 до 838).
+# Списки слов в фильтрах так же читаются глазами и правятся построчно.
+# Когда данные будут вынесены из файлов с логикой в отдельные (см. Info/ROADMAP.md,
+# задача 2.6), ограничение можно снять.
+src/lib/youtubeEmojis.ts
+src/lib/presets.ts
+src/lib/filters.ts
+src/lib/demoChat.ts
+src/lib/donateSounds.ts

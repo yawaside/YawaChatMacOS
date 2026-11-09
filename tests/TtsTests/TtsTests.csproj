@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Тот же файл, что собирается в Windows-хост, без WinForms и NuGet. -->
+    <Compile Include="../../webview2/SecMsGec.cs" Link="SecMsGec.cs" />
+    <Compile Include="../../webview2/EdgeTtsConfig.cs" Link="EdgeTtsConfig.cs" />
+  </ItemGroup>
+</Project>

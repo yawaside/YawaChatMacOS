@@ -1,0 +1,49 @@
+# Конфигурация Dependabot.
+#
+# Два правила, из-за которых файл выглядит именно так:
+#
+# 1. В групповой PR «frontend» попадают только minor/patch-обновления.
+#    Мажорные версии приходят отдельными PR — их безопаснее смотреть по одному,
+#    а не пачкой в одном большом обновлении.
+#
+# 2. TypeScript заморожен на 5.x, пока typescript-eslint не поддержит TS 7.
+#    Причина: peer-диапазон typescript-eslint — ">=4.8.4 <6.1.0", поэтому
+#    npm ci с TypeScript 6/7 падает с ERESOLVE и валит сборку целиком.
+#    Дополнительно: в TS 6 опция baseUrl объявлена устаревшей (ошибка TS5101),
+#    а в TS 7 — удалена (ошибка TS5102).
+#    Когда выйдет релиз typescript-eslint с поддержкой TS >= 7.1 —
+#    блок ignore можно удалить. Отслеживание:
+#    https://github.com/typescript-eslint/typescript-eslint/issues/10940
+#
+# Проверить действующие условия можно командой в PR:
+#   @dependabot show typescript ignore conditions
+
+version: 2
+updates:
+  # ── Рендерер, скрипты сборки и конфиги (корень репозитория) ───────────────
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      frontend:
+        patterns:
+          - "*"
+        # Только minor/patch в группе; мажоры — отдельными PR.
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Мажорные обновления TypeScript не предлагать.
+      # Патчи и минорные версии внутри 5.x при этом продолжат приходить.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+
+  # ── Мост TikTok LIVE (отдельный пакет) ───────────────────────────────────
+  - package-ecosystem: npm
+    directory: "/tiktok-bridge"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
