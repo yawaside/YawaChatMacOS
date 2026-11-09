@@ -57,7 +57,7 @@ export interface ShellFeedProps {
   hideDeleted?: boolean;
   mentionHL?: boolean;
   /** «Воздух» показывает время в строке, «Студия» — слева колонкой */
-  layout: "air" | "studio";
+  layout: "air" | "studio" | "mac";
   composer?: boolean;
   view?: ChatViewConfig;
   onClear?: () => void;
@@ -264,7 +264,7 @@ function ShellRow({
   onModerate,
 }: {
   m: ChatMsg;
-  layout: "air" | "studio";
+  layout: "air" | "studio" | "mac";
   fontSize?: number;
   /** свежая строка: картинки грузим сразу */
   eager?: boolean;

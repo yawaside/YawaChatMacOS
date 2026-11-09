@@ -294,6 +294,83 @@ export function IconBtn({
   );
 }
 
+/* ---------- кнопки-светофоры в стиле macOS (вид «macOS») ----------
+   Красная — закрыть окно, жёлтая — свернуть, зелёная — развернуть.
+   Глифы проявляются при наведении, как в macOS; кнопки сами по себе
+   маленькие, область нажатия больше гибкая за счёт паддинга снаружи. */
+export function TrafficLights({
+  onClose,
+  onMinimize,
+  onToggleMaximize,
+  maximized,
+  minimizeToTray,
+  closeToTray,
+}: {
+  onClose: () => void;
+  onMinimize: () => void;
+  onToggleMaximize: () => void;
+  maximized?: boolean;
+  minimizeToTray?: boolean;
+  closeToTray?: boolean;
+}) {
+  const glyph =
+    "pointer-events-none opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-black/60";
+  const btn =
+    "group relative grid h-3 w-3 shrink-0 cursor-pointer place-items-center rounded-full border border-black/20 shadow-[inset_0_-1px_1px_rgba(0,0,0,0.15)] transition-transform duration-100 active:scale-90 no-drag";
+  return (
+    <div className="flex shrink-0 items-center gap-2 no-drag" aria-label="Окно">
+      <button
+        type="button"
+        className={btn}
+        style={{ background: "#FF5F57" }}
+        title={closeToTray ? "Скрыть в трей" : "Закрыть"}
+        aria-label={closeToTray ? "Скрыть в трей" : "Закрыть"}
+        onClick={onClose}
+      >
+        <svg className={glyph} width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+          <path
+            d="M1.6 1.6 6.4 6.4M6.4 1.6 1.6 6.4"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className={btn}
+        style={{ background: "#FEBC2E" }}
+        title={minimizeToTray ? "Свернуть в трей" : "Свернуть"}
+        aria-label={minimizeToTray ? "Свернуть в трей" : "Свернуть"}
+        onClick={onMinimize}
+      >
+        <svg className={glyph} width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+          <path d="M1.6 4h4.8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className={btn}
+        style={{ background: "#28C840" }}
+        title={maximized ? "Оконный режим" : "Во весь экран"}
+        aria-label={maximized ? "Оконный режим" : "Во весь экран"}
+        onClick={onToggleMaximize}
+      >
+        <svg className={glyph} width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+          <path
+            d="M2 3.6V2h1.6M6 4.4V6H4.4"
+            stroke="currentColor"
+            strokeWidth="1.15"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 /* ---------- чекбокс ---------- */
 export function CheckRow({
   label,

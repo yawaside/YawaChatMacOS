@@ -2789,9 +2789,6 @@ input[type="range"]::-moz-range-thumb {
     transition: none !important;
   }
 }
-<<<<<<< HEAD
-=======
-
 /* Пункт настроек, найденный через поиск: короткая вспышка акцентом,
    чтобы было видно, куда именно привёл переход. */
 @keyframes y-set-flash {

@@ -26,7 +26,7 @@ export default function AppViewPanel({
         hint="Раскладка и палитра окна. Применяется сразу и запоминается."
         defaultOpen
       >
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {APP_VARIANTS.map((v) => {
             const on = variantId === v.id;
             const I = v.icon;
@@ -82,6 +82,50 @@ export default function AppViewPanel({
 /** Миниатюра окна: шапка, панель каналов, лента и сводка. */
 function Swatch({ v }: { v: AppVariant }) {
   const air = v.id === "air";
+  if (v.id === "mac") {
+    /* «macOS»: светофоры в заголовке, вибрантная боковая панель, лента. */
+    return (
+      <div
+        className="flex h-[56px] flex-col overflow-hidden rounded-[9px]"
+        style={{
+          background: "linear-gradient(165deg, #1D1D21 0%, #171719 50%, #131316 100%)",
+          boxShadow: `inset 0 0 0 1px ${v.vars["--dw-line"]}`,
+        }}
+      >
+        <div className="flex h-[11px] shrink-0 items-center gap-[3px] border-b border-white/[0.06] bg-white/[0.04] px-[5px]">
+          {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
+            <span key={c} className="h-[4px] w-[4px] rounded-full" style={{ background: c }} />
+          ))}
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-[32%] flex-col items-stretch gap-[3px] border-r border-white/[0.06] bg-white/[0.05] p-[4px]">
+            {["#0A84FF", "#BF5AF2", "#FF9F0A", "#30D158"].map((t, i) => (
+              <div key={i} className="flex items-center gap-[3px]">
+                <span className="h-[4px] w-[4px] shrink-0 rounded-[1px]" style={{ background: t }} />
+                <span
+                  className="block h-[3px] rounded-full"
+                  style={{ width: `${70 - i * 12}%`, background: "rgba(255,255,255,0.45)" }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-1 flex-col gap-[3px] p-[4px]">
+            <span
+              className="block h-[3.5px] w-[42%] rounded-full"
+              style={{ background: v.vars["--dw-accent"] }}
+            />
+            {[0.9, 0.7, 0.8, 0.55].map((w, i) => (
+              <span
+                key={i}
+                className="block h-[3px] rounded-full"
+                style={{ width: `${w * 100}%`, background: "rgba(255,255,255,0.32)" }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className="flex h-[56px] gap-1 p-1"
